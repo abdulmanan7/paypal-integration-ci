@@ -4,12 +4,19 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Paypal
 {
 	protected $ci;
-	protected $clientID;
-	protected $clientSecret;
+	private $clientID;
+	private $clientSecret;
+	protected $redirectUrl;
+	protected $cancelUrl;
+	protected $paymentMethod = "paypal";
+	protected $currency = "USD";
+	//intention of the payment
+	protected $intent = "sale";
 
 	public function __construct(array $config = array())
 	{
-        $this->ci =& get_instance();
+		require_once APPPATH.'third_party/paypal/autoload.php';
+		$this->ci =& get_instance();
 		$this->initialize($config);
 		$this->_safe_mode = ( ! is_php('5.4') && ini_get('safe_mode'));
 		log_message('info', 'Paypal Class Initialized');
@@ -18,12 +25,14 @@ class Paypal
 	 * Initialize preferences
 	 *
 	 * @param	array	$config
-	 * @return	CI_Email
+	 * @return	this
 	 */
 	public function initialize(array $config = array())
 	{
-		$this->clear();
-
+		// $this->clear();
+		echo "<pre>";
+		print_r($config);
+		die;
 		foreach ($config as $key => $val)
 		{
 			if (isset($this->$key))
@@ -40,7 +49,6 @@ class Paypal
 				}
 			}
 		}
-
 		return $this;
 	}
 	public function clear()
@@ -58,7 +66,7 @@ class Paypal
 	 */
 	public function set_clientID($value)
 	{
-		$this->clientID = $value
+		$this->clientID = $value;
 		return $this;
 	}
 	/**
@@ -69,11 +77,67 @@ class Paypal
 	 */
 	public function set_clientSecret($value)
 	{
-		$this->clientSecret = $value
+		$this->clientSecret = $value;
 		return $this;
 	}
+	public function set_redirectUrl($value)
+	{
+		$this->redirectUrl = $value;
+		return $this;
+	}
+	public function set_cancelUrl($value)
+	{
+		$this->cancelUrl = $value;
+		return $this;
+	}
+	/**
+	 * pay
+	 *
+	 * @param	string amount to pay
+	 * @return	array payment details and approval link
+	 */
+	public function pay($payment)
+	{
+		die($this->redirectUrl);
+		$result = array("error"=>"","payment"=>"","approval_url"=>"");
+		$apiContext = new \PayPal\Rest\ApiContext(
+			new \PayPal\Auth\OAuthTokenCredential(
+				$this->clientID,
+				$this->clientSecret
+			)
+		);
+		// After Step 2
+		$payer = new \PayPal\Api\Payer();
+		$payer->setPaymentMethod($this->paymentMethod);
 
-	
+		$amount = new \PayPal\Api\Amount();
+		$amount->setTotal($payment);
+		$amount->setCurrency($this->currency);
+
+		$transaction = new \PayPal\Api\Transaction();
+		$transaction->setAmount($amount);
+
+		$redirectUrls = new \PayPal\Api\RedirectUrls();
+		$redirectUrls->setReturnUrl($this->redirectUrl)
+		->setCancelUrl($this->cancelUrl);
+
+		$payment = new \PayPal\Api\Payment();
+		$payment->setIntent($this->intent)
+		->setPayer($payer)
+		->setTransactions(array($transaction))
+		->setRedirectUrls($redirectUrls);
+
+		// After Step 3
+		try {
+			$payment->create($apiContext);
+			$result["payment"] = $payment;
+			$result["approval_url"] = $payment->getApprovalLink();
+		}
+		catch (\PayPal\Exception\PayPalConnectionException $ex) {
+			$result["error"] = $ex->getData();
+		}
+		return $result;
+	}
 
 }
 
@@ -98,36 +162,3 @@ class Paypal
 //     )
 // );
 
-// // After Step 2
-// $payer = new \PayPal\Api\Payer();
-// $payer->setPaymentMethod('paypal');
-
-// $amount = new \PayPal\Api\Amount();
-// $amount->setTotal('1.00');
-// $amount->setCurrency('USD');
-
-// $transaction = new \PayPal\Api\Transaction();
-// $transaction->setAmount($amount);
-
-// $redirectUrls = new \PayPal\Api\RedirectUrls();
-// $redirectUrls->setReturnUrl("http://localhost/gc/paypal.php")
-//     ->setCancelUrl("http://localhost/gc/paypal.php");
-
-// $payment = new \PayPal\Api\Payment();
-// $payment->setIntent('sale')
-//     ->setPayer($payer)
-//     ->setTransactions(array($transaction))
-//     ->setRedirectUrls($redirectUrls);
-
-// // After Step 3
-// try {
-//     $payment->create($apiContext);
-//     echo $payment;
-
-//     echo "\n\nRedirect user to approval_url: " . $payment->getApprovalLink() . "\n";
-// }
-// catch (\PayPal\Exception\PayPalConnectionException $ex) {
-//     // This will print the detailed information on the exception.
-//     //REALLY HELPFUL FOR DEBUGGING
-//     echo $ex->getData();
-// }

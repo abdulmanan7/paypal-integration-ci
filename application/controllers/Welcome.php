@@ -22,4 +22,25 @@ class Welcome extends CI_Controller {
 	{
 		$this->load->view('welcome_message');
 	}
+	public function payment()
+	{
+		$this->load->library('paypal');
+		$config = [
+				"clientID"=> "Aek4AInAErRU-U_NVz4aIudBLnDavQKkJ8Bf7qAcpY2vB6Pzq04eX699_9GhJmdI6zfPI9kbjMxRwvaf",
+				"clientSecret"=> "EGmJSi49ktJ111COqPvmsoIDHhw-5zIXg9OtSeQ8z3t_Wy3RzIDMeKTmIRlB9gJrL5Qka7cF9-KISDiR",
+				"redirectUrl"=>"http://localhost/paypal-integration-ci/index.php/welcome/success",
+				"cancelUrl"=>"http://localhost/paypal-integration-ci/index.php/welcome/payment/canceled"
+		];
+		$paypal = $this->paypal->initialize($config);
+		$result = $paypal->pay('1.00');
+		echo "<pre>";
+		print_r($result);
+		die;
+	}
+	public function success()
+	{
+		echo "<pre>";
+		print_r($this->input->get());
+		die;
+	}
 }
